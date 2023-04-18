@@ -16,39 +16,138 @@ output:
 knitr::opts_chunk$set(message=FALSE,warning=FALSE, cache=TRUE)
 ```
 
-**IMPORTANT:** You can delete everything in here and start fresh. You might want to start by not deleting anything above this line until you know what that stuff is doing.
 
-This is an `.Rmd` file. It is plain text with special features. Any time you write just like this, it will be compiled to normal text in the website. If you put a \# in front of your text, it will create a top level-header.
+##Task 1:
 
-# My first post
-
-Last compiled: `r Sys.Date()`
-
-Notice that whatever you define as a top level header, automatically gets put into the table of contents bar on the left. 
-
-## Second level header
-
-You can add more headers by adding more hashtags. These won't be put into the table of contents
-
-### third level header
-
-Here's an even lower level header
-
-# My second post (note the order)
-
-Last compiled: `r Sys.Date()`
-
-I'm writing this tutorial going from the top down. And, this is how it will be printed. So, notice the second post is second in the list. If you want your most recent post to be at the top, then make a new post starting at the top. If you want the oldest first, do, then keep adding to the bottom
-
-# Adding R stuff
-
-So far this is just a blog where you can write in plain text and serve your writing to a webpage. One of the main purposes of this lab journal is to record your progress learning R. The reason I am asking you to use this process is because you can both make a website, and a lab journal, and learn R all in R-studio. This makes everything really convenient and in the same place. 
-
-So, let's say you are learning how to make a histogram in R. For example, maybe you want to sample 100 numbers from a normal distribution with mean = 0, and standard deviation = 1, and then you want to plot a histogram. You can do this right here by using an r code block, like this:
+##Goal: Map the time course of the cumulative Covid-19 cases! 
 
 ```{r}
-samples <- rnorm(100, mean=0, sd=1)
-hist(samples)
+library(tidyverse)
+library(lubridate)
+library(ggthemes)
+library(maps)
+library(ggrepel)
+library(purrr)
+
+
+
+#Loading and preprocessing  data 
+covid_data_tbl <- read_csv("https://covid.ourworldindata.org/data/owid-covid-data.csv") %>%
+  select(location, date, total_cases) %>%
+  filter(location == "Germany" | location == "United Kingdom" | location == "France" | location == "Spain" | location == "United States")%>%
+  mutate(cases_dec = scales::dollar(total_cases, big.mark = ".", 
+                                    decimal.mark = ",", 
+                                    prefix = "", 
+                                    suffix = ""))
+
+
+#Data Visualization challenge 1 : plotting data
+
+covid_data_tbl %>%
+  ggplot(aes(x = date, y = total_cases, color = location)) +
+  
+  
+  geom_line(size = 1) +
+  
+  geom_label_repel(aes(x=date, y=total_cases, label=cases_dec) , 
+                   data = covid_data_tbl %>% slice(which.max(total_cases)),
+                   vjust = 0.5, 
+                   hjust = 0.5,color = "red")+
+  
+  expand_limits(y = 0) +
+  
+  scale_y_continuous(labels = scales::dollar_format(scale = 1/1e6,
+                                                    prefix = "",
+                                                    suffix = "M")) +
+  
+  scale_x_date(date_labels = "%B %Y", 
+               date_breaks = "1 month", 
+               expand = c(0,NA)) +
+  # Plot labeling 
+  
+  labs(
+    title = "Worldwide Covid-19 Confirmed cases",
+    subtitle = "As of 07/05/2021",
+    x = "Months",
+    y = "Cumulative Cases",
+    color = "Country or Location"
+  )  +
+  
+  theme_light() +
+  theme(title = element_text(face = "bold", color = "cyan4"),
+        legend.position  = "Right",
+        axis.text.x = element_text(angle = 90))
+
+
 ```
 
-When you knit this R Markdown document, you will see that the histogram is printed to the page, along with the R code. This document can be set up to hide the R code in the webpage, just delete the comment (hashtag) from the cold folding option in the yaml header up top. For purposes of letting yourself see the code, and me see the code, best to keep it the way that it is. You'll learn that all of these things and more can be customized in each R code block.
+##Task 2:
+
+##Visualize the distribution of the mortality rate (deaths / population) with geom_map().You have to join the lat/long data and the Covid data. Unfortunately, the countries are not named identically in each dataset.
+
+
+```{r}
+
+
+
+
+library(tidyverse)
+library(lubridate)
+library(ggthemes)
+library(maps)
+library(ggrepel)
+library(purrr)
+
+
+  
+
+covid_data_tbl <- read_csv("https://covid.ourworldindata.org/data/owid-covid-data.csv")%>%
+  
+  mutate(mort_rate = total_deaths/population)%>%
+  
+  group_by(location) %>% summarise(Mortality_Rate = last(mort_rate))%>%
+  
+  select(location, Mortality_Rate)%>%
+  
+  mutate(location = case_when(
+    
+    location == "United Kingdom" ~ "UK",
+    location == "United States" ~ "USA",
+    location == "Democratic Republic of Congo" ~ "Democratic Republic of the Congo",
+    TRUE ~ location
+    
+  )) %>%
+  distinct()
+
+world <- map_data("world")
+
+covid_coord <- merge(x=world,y=covid_data_tbl, by.x = "region", by.y = "location")%>%
+ 
+  select(region, long,lat,Mortality_Rate)
+
+# creating world map plot using geom map
+
+covid_coord %>% ggplot() + 
+  
+  geom_map(aes(x = long, y = lat, map_id = region, fill = Mortality_Rate), map = world) +
+  
+  # Plot labeling 
+  
+  scale_fill_continuous(labels = scales::percent_format(accuracy = 0.001), low = "green4", high = "red4") +
+  labs(
+    title = "Confirmed COVID-19 deaths relative to the size of the population",
+    subtitle = "More than 3 Million confirmed Covid-19 deaths worldwide",
+    caption = "Date: 05/07/2021") +
+  
+  
+  theme(axis.line = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), axis.title = element_blank()) +
+  
+  theme(title = element_text(face = "bold", color = "slateblue2"),
+        legend.position  = "right")
+
+
+
+
+
+
+```

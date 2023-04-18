@@ -1,7 +1,7 @@
 ---
 title: "01 Intro to the tidyverse"
-author: "Joschka Schwarz"
-date: "2021-04"
+author: "Mohammad Alam"
+date: "07-05-2021"
 output:
   html_document:
     toc: true
@@ -17,39 +17,139 @@ output:
 knitr::opts_chunk$set(message=FALSE,warning=FALSE, cache=TRUE)
 ```
 
-**IMPORTANT:** You can delete everything in here and start fresh. You might want to start by not deleting anything above this line until you know what that stuff is doing.
-
-This is an `.Rmd` file. It is plain text with special features. Any time you write just like this, it will be compiled to normal text in the website. If you put a \# in front of your text, it will create a top level-header.
-
-# My first post
-
-Last compiled: `r Sys.Date()`
-
-Notice that whatever you define as a top level header, automatically gets put into the table of contents bar on the left. 
-
-## Second level header
-
-You can add more headers by adding more hashtags. These won't be put into the table of contents
-
-### third level header
-
-Here's an even lower level header
-
-# My second post (note the order)
-
-Last compiled: `r Sys.Date()`
-
-I'm writing this tutorial going from the top down. And, this is how it will be printed. So, notice the second post is second in the list. If you want your most recent post to be at the top, then make a new post starting at the top. If you want the oldest first, do, then keep adding to the bottom
-
-# Adding R stuff
-
-So far this is just a blog where you can write in plain text and serve your writing to a webpage. One of the main purposes of this lab journal is to record your progress learning R. The reason I am asking you to use this process is because you can both make a website, and a lab journal, and learn R all in R-studio. This makes everything really convenient and in the same place. 
-
-So, let's say you are learning how to make a histogram in R. For example, maybe you want to sample 100 numbers from a normal distribution with mean = 0, and standard deviation = 1, and then you want to plot a histogram. You can do this right here by using an r code block, like this:
+Analyze the sales by location (state) with a bar plot. Since state and city are multiple features (variables), they should be split. Which state has the highes revenue? Replace your bike_orderlines_wrangled_tbl object with the newly wrangled object (with the columns state and city).
 
 ```{r}
-samples <- rnorm(100, mean=0, sd=1)
-hist(samples)
-```
 
-When you knit this R Markdown document, you will see that the histogram is printed to the page, along with the R code. This document can be set up to hide the R code in the webpage, just delete the comment (hashtag) from the cold folding option in the yaml header up top. For purposes of letting yourself see the code, and me see the code, best to keep it the way that it is. You'll learn that all of these things and more can be customized in each R code block.
+
+library(tidyverse)
+library(readxl)
+library(lubridate)
+
+
+
+bikes_tbl <- read_excel('bikes.xlsx')
+
+orderlines_tbl <- read_excel('orderlines.xlsx')
+
+bikeshops_tbl <- read_excel('bikeshops.xlsx')
+
+
+
+
+joined_tbl <- orderlines_tbl %>% 
+  left_join(bikes_tbl, by = c("product.id" = "bike.id")) %>%
+  left_join(bikeshops_tbl, by = c("customer.id" = "bikeshop.id"))
+
+
+
+wrangled_tbl <- joined_tbl %>% 
+  
+
+  
+  separate(col = location, into = c("city", "state"), sep = ", ") %>%
+  
+
+  
+  mutate(total.price = price * quantity)
+
+
+
+sales_by_location_tbl <- wrangled_tbl %>%
+  
+
+  
+  select(state, total.price) %>%
+  
+ 
+  
+  group_by(state) %>%
+  summarize(sales = sum(total.price)) %>%
+  
+
+  
+  mutate(sales.text = scales::dollar(sales, big.mark = ".", decimal.mark = ",", prefix = "", suffix = "  euro"))
+
+
+
+sales_by_location_tbl %>%
+  
+ 
+  ggplot(aes(x = state, y = sales)) + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  
+  
+  geom_col(fill = "#2DC6D6") + # Use geom_col for a bar plot
+  geom_label(aes(label = sales.text)) + # Adding labels to the bars
+  geom_smooth(method = "lm", se = FALSE) + # Adding a trendline
+  
+
+  scale_y_continuous(labels = scales::dollar_format(big.mark = ".", 
+                                                    decimal.mark = ",", 
+                                                    prefix = " ", 
+                                                    suffix = "  euro")) +
+  labs(
+    title    = "Revenue by state",
+    subtitle = "Upward Trend",
+    x = "State", # Override defaults for x and y
+    y = "Revenue"
+  )
+
+
+
+sales_by_location_year_tbl <- wrangled_tbl %>%
+  
+  
+  
+  select(order.date, total.price, state) %>%
+  mutate(year = year(order.date)) %>%
+  
+  
+  
+  group_by(year, state) %>%
+  summarise(sales = sum(total.price)) %>%
+  ungroup() %>%
+  
+  mutate(sales.text = scales::dollar(sales, big.mark = ".", 
+                                     decimal.mark = ",", 
+                                     prefix = "", 
+                                     suffix = "  euro"))  
+
+sales_by_location_year_tbl    
+
+
+
+sales_by_location_year_tbl %>%
+  
+
+  ggplot(aes(x = year, y = sales, fill = state)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  
+
+  geom_col() + # Run up to here to get a stacked bar plot
+  geom_smooth(method = "lm", se = FALSE) + # Adding a trendline
+  
+
+  facet_wrap(~ state) +
+  
+
+  scale_y_continuous(labels = scales::dollar_format(big.mark = ".", 
+                                                    decimal.mark = ",", 
+                                                    prefix = "", 
+                                                    suffix = "  euro")) +
+  labs(
+    title = "Revenue by State and Year",
+    subtitle = "All The Products are Showing Increment In Revenue Except Saxony-Anhalt
+                             M.W.P. and Schleswig-Holstein",
+    fill = "States" # Changes the legend name to state
+  )
+
+result_2a <- sales_by_location_tbl
+
+write_rds(result_2a, "result2a.rds")
+
+result_2b <- sales_by_location_year_tbl
+
+write_rds(result_2b, "result2b.rds")
+
+
+```
